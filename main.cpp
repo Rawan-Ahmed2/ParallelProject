@@ -16,22 +16,15 @@ int main(int argc, char* argv[]) {
     if (rank == 0) {
         cout << "Choose Algorithm:\n";
         cout << "1. Heat Diffusion\n";
-        cout << "2. prefix Sum\n";
+        cout << "2. Prefix Sum\n";
         cin >> choice;
     }
 
     MPI_Bcast(&choice, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-    // ?? MPI_Comm_split ?????????????????????????????????????????????
-    // Split processes into 2 groups based on choice:
-    //
-    // Grid algorithms  (Heat, GameOfLife) ? color = 0
-    // Data algorithms  (Matrix)           ? color = 1
-    //
-    // Even if only one algorithm runs, the split still organizes
-    // processes into logical groups showing structured communication
+    // MPI_Comm_split — grid algorithms vs data algorithms
     int color;
-    if (choice == 1 || choice == 3)
+    if (choice == 1)
         color = 0;   // grid group
     else
         color = 1;   // data group
@@ -45,21 +38,15 @@ int main(int argc, char* argv[]) {
 
     if (rank == 0) {
         cout << "\n[Main] MPI_Comm_split:\n";
-        cout << "  color 0 = Grid  algorithms (Heat Diffusion, Game of Life)\n";
-        cout << "  color 1 = Data  algorithms (Matrix Multiplication)\n";
-        cout << "  All " << size << " processes ? color " << color << "\n";
-        cout << "  subSize = " << subSize << "\n\n";
+        cout << "  color 0 = Grid algorithms (Heat Diffusion)\n";
+        cout << "  color 1 = Data algorithms (Prefix Sum)\n";
+        cout << "  All " << size << " processes ? color " << color << "\n\n";
     }
 
     switch (choice) {
-    case 1:
-        runHeatDiffusion(subRank, subSize, algoComm);
-        break;
-    case 2:
-		runPrefixSum(subRank, subSize, algoComm);
-        break;
-
-       default:
+    case 1: runHeatDiffusion(subRank, subSize, algoComm); break;
+    case 2: runPrefixSum(subRank, subSize, algoComm);     break;
+    default:
         if (rank == 0) cout << "Invalid choice.\n";
     }
 
