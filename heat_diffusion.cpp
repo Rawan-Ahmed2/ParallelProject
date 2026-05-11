@@ -9,6 +9,7 @@ void runHeatDiffusion(int rank, int size, MPI_Comm comm) {
     const int iterations = 5;
     int rows = 0, cols = 0;
     vector<vector<double>> fullGrid;
+    double totalStart = MPI_Wtime();
 
     // ?? Step 1: Rank 0 loads grid from file ????????????????????????
     if (rank == 0) {
@@ -84,6 +85,9 @@ void runHeatDiffusion(int rank, int size, MPI_Comm comm) {
                 0, 0, comm, MPI_STATUS_IGNORE);
     }
 
+    MPI_Barrier(comm);
+    double computeStart = MPI_Wtime();
+
     // ?? Step 5: Run iterations (your exact original code) ??????????
     for (int step = 0; step < iterations; step++) {
         int reqCount = 0;
@@ -113,6 +117,11 @@ void runHeatDiffusion(int rank, int size, MPI_Comm comm) {
 
         grid = newGrid;
     }
+
+    double computeEnd = MPI_Wtime();
+    double localComputeTime = computeEnd - computeStart;
+    double maxComputeTime = 0.0;
+    MPI_Reduce(&localComputeTime, &maxComputeTime, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
     // ?? Step 6: Flatten local grid ?????????????????????????????????
 
     vector<double> flat(localRows* cols);
@@ -146,6 +155,17 @@ void runHeatDiffusion(int rank, int size, MPI_Comm comm) {
             cout << "\n";
         }
         cout << "\n[Heat] Done!\n";
+    }
+
+    double totalEnd = MPI_Wtime();
+    double localTotalTime = totalEnd - totalStart;
+    double maxTotalTime = 0.0;
+    MPI_Reduce(&localTotalTime, &maxTotalTime, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
+
+    if (rank == 0) {
+        cout << "[Heat] Timing:\n";
+        cout << "  Max compute time: " << maxComputeTime << " seconds\n";
+        cout << "  Max total time  : " << maxTotalTime << " seconds\n";
     }
 
 }

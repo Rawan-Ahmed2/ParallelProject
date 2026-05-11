@@ -2,12 +2,22 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
+#include <algorithm>
 using namespace std;
+
+static void printPreview(const vector<double>& values, int previewCount) {
+    int count = min(previewCount, static_cast<int>(values.size()));
+    for (int i = 0; i < count; i++)
+        cout << values[i] << " ";
+    if (static_cast<int>(values.size()) > count)
+        cout << "... ";
+}
 
 void runPrefixSum(int rank, int size, MPI_Comm comm) {
 
     int n = 0;
     vector<double> fullArray;
+    double totalStart = MPI_Wtime();
 
     // ?? Step 1: Rank 0 loads array from file ???????????????????????
     if (rank == 0) {
@@ -22,20 +32,20 @@ void runPrefixSum(int rank, int size, MPI_Comm comm) {
             f.read(reinterpret_cast<char*>(&rows), sizeof(int));
             f.read(reinterpret_cast<char*>(&cols), sizeof(int));
 
-            // Read ONLY the first row
-            n = cols;
+            // Flatten the full matrix into one 1D array.
+            n = rows * cols;
             fullArray.resize(n);
             f.read(reinterpret_cast<char*>(fullArray.data()),
                 n * sizeof(double));
             f.close();
 
-            cout << "[Prefix] Loaded first row from grid_input.bin\n";
-            cout << "[Prefix] Array size: " << n << " elements\n";
+            cout << "[Prefix] Loaded and flattened grid_input.bin\n";
+            cout << "[Prefix] Original matrix size: " << rows << "x" << cols << "\n";
+            cout << "[Prefix] Flattened array size: " << n << " elements\n";
         }
 
-        cout << "[Prefix] Input array:\n  ";
-        for (int i = 0; i < n; i++)
-            cout << fullArray[i] << " ";
+        cout << "[Prefix] Input preview:\n  ";
+        printPreview(fullArray, 20);
         cout << "\n";
         cout << "[Prefix] Processes: " << size << "\n";
     }
@@ -78,6 +88,9 @@ void runPrefixSum(int rank, int size, MPI_Comm comm) {
             0, 0, comm, MPI_STATUS_IGNORE);
     }
 
+    MPI_Barrier(comm);
+    double computeStart = MPI_Wtime();
+
     // ?? Step 5: Each process computes local prefix sum ?????????????
     //
     //  Example: Process 1 gets [5, 9]
@@ -85,11 +98,13 @@ void runPrefixSum(int rank, int size, MPI_Comm comm) {
     //  Local total = 14
     //
     vector<double> localPrefix(localN);
-    localPrefix[0] = localArr[0];
-    for (int i = 1; i < localN; i++)
-        localPrefix[i] = localPrefix[i - 1] + localArr[i];
-
-    double localTotal = localPrefix[localN - 1];
+    double localTotal = 0.0;
+    if (localN > 0) {
+        localPrefix[0] = localArr[0];
+        for (int i = 1; i < localN; i++)
+            localPrefix[i] = localPrefix[i - 1] + localArr[i];
+        localTotal = localPrefix[localN - 1];
+    }
 
     // ?? Print local prefix in order ????????????????????????????????
     for (int p = 0; p < size; p++) {
@@ -97,7 +112,10 @@ void runPrefixSum(int rank, int size, MPI_Comm comm) {
             cout << "[Prefix] Process " << rank
                 << " local prefix: ";
             for (int i = 0; i < localN; i++)
-                cout << localPrefix[i] << " ";
+                if (i < 10)
+                    cout << localPrefix[i] << " ";
+                else if (i == 10)
+                    cout << "... ";
             cout << "(local total = " << localTotal << ")\n";
             cout.flush();
         }
@@ -145,13 +163,21 @@ void runPrefixSum(int rank, int size, MPI_Comm comm) {
     for (int i = 0; i < localN; i++)
         localPrefix[i] += myOffset;
 
+    double computeEnd = MPI_Wtime();
+    double localComputeTime = computeEnd - computeStart;
+    double maxComputeTime = 0.0;
+    MPI_Reduce(&localComputeTime, &maxComputeTime, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
+
     // ?? Print final prefix in order ????????????????????????????????
     for (int p = 0; p < size; p++) {
         if (rank == p) {
             cout << "[Prefix] Process " << rank
                 << " final prefix: ";
             for (int i = 0; i < localN; i++)
-                cout << localPrefix[i] << " ";
+                if (i < 10)
+                    cout << localPrefix[i] << " ";
+                else if (i == 10)
+                    cout << "... ";
             cout << "\n";
             cout.flush();
         }
@@ -191,13 +217,24 @@ void runPrefixSum(int rank, int size, MPI_Comm comm) {
 
     // ?? Step 13: Print full result ?????????????????????????????????
     if (rank == 0) {
-        cout << "\n[Prefix] Input  : ";
-        for (int i = 0; i < n; i++)
-            cout << fullArray[i] << " ";
+        cout << "\n[Prefix] Input preview  : ";
+        printPreview(fullArray, 20);
 
-        cout << "\n[Prefix] Result : ";
-        for (int i = 0; i < n; i++)
-            cout << full[i] << " ";
+        cout << "\n[Prefix] Result preview : ";
+        printPreview(full, 20);
+        if (!full.empty())
+            cout << "\n[Prefix] Final prefix total: " << full.back();
         cout << "\n\n[Prefix] Done!\n";
+    }
+
+    double totalEnd = MPI_Wtime();
+    double localTotalTime = totalEnd - totalStart;
+    double maxTotalTime = 0.0;
+    MPI_Reduce(&localTotalTime, &maxTotalTime, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
+
+    if (rank == 0) {
+        cout << "[Prefix] Timing:\n";
+        cout << "  Max compute time: " << maxComputeTime << " seconds\n";
+        cout << "  Max total time  : " << maxTotalTime << " seconds\n";
     }
 }
