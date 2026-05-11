@@ -134,17 +134,7 @@ void runHeatDiffusion(int rank, int size, MPI_Comm comm) {
     if (rank == 0)
         full.resize(rows * cols);
 
-    MPI_Gatherv(
-        flat.data(),
-        localRows * cols,
-        MPI_DOUBLE,
-        rank == 0 ? full.data() : nullptr,
-        recvCounts.data(),
-        displs.data(),
-        MPI_DOUBLE,
-        0,
-        comm
-    );
+    MPI_Gatherv(flat.data(), localRows * cols, MPI_DOUBLE, rank == 0 ? full.data() : nullptr, recvCounts.data(), displs.data(), MPI_DOUBLE, 0, comm);
 
     // ?? Step 9: Print full final grid ??????????????????????????????
     if (rank == 0) {

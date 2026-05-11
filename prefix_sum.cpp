@@ -99,6 +99,7 @@ void runPrefixSum(int rank, int size, MPI_Comm comm) {
             for (int i = 0; i < localN; i++)
                 cout << localPrefix[i] << " ";
             cout << "(local total = " << localTotal << ")\n";
+            cout.flush();
         }
         MPI_Barrier(comm);
     }
@@ -152,6 +153,7 @@ void runPrefixSum(int rank, int size, MPI_Comm comm) {
             for (int i = 0; i < localN; i++)
                 cout << localPrefix[i] << " ";
             cout << "\n";
+            cout.flush();
         }
         MPI_Barrier(comm);
     }
