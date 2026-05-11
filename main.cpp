@@ -22,35 +22,13 @@ int main(int argc, char* argv[]) {
 
     MPI_Bcast(&choice, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-    // MPI_Comm_split — grid algorithms vs data algorithms
-    int color;
-    if (choice == 1)
-        color = 0;   // grid group
-    else
-        color = 1;   // data group
-
-    MPI_Comm algoComm;
-    MPI_Comm_split(MPI_COMM_WORLD, color, rank, &algoComm);
-
-    int subRank, subSize;
-    MPI_Comm_rank(algoComm, &subRank);
-    MPI_Comm_size(algoComm, &subSize);
-
-    if (rank == 0) {
-        cout << "\n[Main] MPI_Comm_split:\n";
-        cout << "  color 0 = Grid algorithms (Heat Diffusion)\n";
-        cout << "  color 1 = Data algorithms (Prefix Sum)\n";
-        cout << "  All " << size << " processes ? color " << color << "\n\n";
-    }
-
     switch (choice) {
-    case 1: runHeatDiffusion(subRank, subSize, algoComm); break;
-    case 2: runPrefixSum(subRank, subSize, algoComm);     break;
+    case 1: runHeatDiffusion(rank, size, MPI_COMM_WORLD); break;
+    case 2: runPrefixSum(rank, size, MPI_COMM_WORLD);     break;
     default:
         if (rank == 0) cout << "Invalid choice.\n";
     }
 
-    MPI_Comm_free(&algoComm);
     MPI_Finalize();
     return 0;
 }
